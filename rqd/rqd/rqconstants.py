@@ -40,7 +40,7 @@ else:
   CUEBOT_HOSTNAME = 'localhost'
 
 RQD_TIMEOUT = 10000
-DEFAULT_FACILITY = 'cloud'
+DEFAULT_FACILITY = 'local'
 
 # GRPC VALUES
 RQD_GRPC_MAX_WORKERS = 10
@@ -100,9 +100,9 @@ OVERRIDE_CORES = None # number of cores. ex: None or 8
 OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
-OVERRIDE_NIMBY = None # True to turn on, False to turn off
-ALLOW_GPU = False
-ALLOW_PLAYBLAST = False
+OVERRIDE_NIMBY = True # True to turn on, False to turn off
+ALLOW_GPU = True
+ALLOW_PLAYBLAST = True
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
 if commands.getoutput('/bin/su --help').find('session-command') != -1:
