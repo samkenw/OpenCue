@@ -31,6 +31,7 @@ import subprocess
 import time
 
 import pexpect
+import wexpect
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 import six
@@ -1213,7 +1214,8 @@ class HostActions(AbstractActions):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
             try:
-                lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
+                # lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines() # pexpect.run() is a unix module, use wexpect instead
+                lines = wexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
                 QtWidgets.QMessageBox.information(self._caller,
                                                   "%s hinv" % host.data.name,
                                                   "\n".join(lines),
