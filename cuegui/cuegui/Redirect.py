@@ -59,7 +59,7 @@ class ShowCombo(QtWidgets.QComboBox):
     def refresh(self):
         self.clear()
         shows = opencue.api.getActiveShows()
-        shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
+        # shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         for show in shows:
             self.addItem(show.data.name, show)
@@ -92,7 +92,7 @@ class AllocFilter(QtWidgets.QPushButton):
         Refresh the full list of allocations.
         """
         allocs = opencue.api.getAllocations()
-        allocs.sort(lambda x,y: cmp(x.data.name, y.data.name))
+        # allocs.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         self.__menu.clear()
         checked = 0
