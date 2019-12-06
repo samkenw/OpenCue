@@ -41,6 +41,10 @@ import sys
 import tempfile
 import time
 import traceback
+import uptime
+import GPUtil
+
+import ctypes
 
 if platform.system() in ('Linux', 'Darwin'):
     import resource
@@ -124,58 +128,66 @@ class Machine:
             if os.path.islink(rqconstants.PATH_INIT_TARGET):
                 if os.path.realpath(rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
                     return True
+        if platform.system() == 'Windows':
+            return True
         return False
 
     def isUserLoggedIn(self):
-        # For non-headless systems, first check to see if there
-        # is a user logged into the display.
-        displayNums = []
+        if platform.system() == 'Linux':
+            # For non-headless systems, first check to see if there
+            # is a user logged into the display.
+            displayNums = []
 
-        try:
-            displayRe = re.compile(r'X(\d+)')
-            for displays in os.listdir('/tmp/.X11-unix'):
-                m = displayRe.match(displays)
-                if not m:
-                    continue
-                displayNums.append(int(m.group(1)))
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
+            try:
+                displayRe = re.compile(r'X(\d+)')
+                for displays in os.listdir('/tmp/.X11-unix'):
+                    m = displayRe.match(displays)
+                    if not m:
+                        continue
+                    displayNums.append(int(m.group(1)))
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
 
-        if displayNums:
-            # Check `who` output for a user associated with a display, like:
-            #
-            # (unknown) :0           2017-11-07 18:21 (:0)
-            #
-            # In this example, the user is '(unknown)'.
-            for line in subprocess.check_output(['/usr/bin/who']).splitlines():
-                for displayNum in displayNums:
-                    if '(:{})'.format(displayNum) in line:
-                        cols = line.split()
-                        # Whitelist a user called '(unknown)' as this
-                        # is what shows up when gdm is running and
-                        # showing a login screen.
-                        if cols[0] != '(unknown)':
-                            log.warning(
-                                'User {} logged into display :{}'.format(
-                                    cols[0], displayNum))
-                            return True
+            if displayNums:
+                # Check `who` output for a user associated with a display, like:
+                #
+                # (unknown) :0           2017-11-07 18:21 (:0)
+                #
+                # In this example, the user is '(unknown)'.
+                for line in subprocess.check_output(['/usr/bin/who']).splitlines():
+                    for displayNum in displayNums:
+                        if '(:{})'.format(displayNum) in line:
+                            cols = line.split()
+                            # Whitelist a user called '(unknown)' as this
+                            # is what shows up when gdm is running and
+                            # showing a login screen.
+                            if cols[0] != '(unknown)':
+                                log.warning(
+                                    'User {} logged into display :{}'.format(
+                                        cols[0], displayNum))
+                                return True
 
-            # When there is a display, the above code is considered
-            # the authoritative check for a logged in user. The
-            # code below gives false positives on a non-headless
-            # system.
+                # When there is a display, the above code is considered
+                # the authoritative check for a logged in user. The
+                # code below gives false positives on a non-headless
+                # system.
+                return False
+
+            # These process names imply a user is logged in.
+            names = {'kdesktop', 'gnome-session', 'startkde'}
+
+            for proc in psutil.process_iter():
+                procName = proc.name()
+                for name in names:
+                    if name in procName:
+                        return True
             return False
 
-        # These process names imply a user is logged in.
-        names = {'kdesktop', 'gnome-session', 'startkde'}
+        elif platform.system() == 'Windows':
+            user32 = ctypes.windll.User32
+            return (user32.GetForegroundWindow() % 10) == 0
 
-        for proc in psutil.process_iter():
-            procName = proc.name()
-            for name in names:
-                if name in procName:
-                    return True
-        return False
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
@@ -289,6 +301,13 @@ class Machine:
             loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
             return loadAvg
+        elif platform.system() == 'Windows':
+            loadAvg = int(float(psutil.getloadavg()[0]) * 100)
+            if self.__enabledHT():
+                loadAvg = loadAvg / 2
+            loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
+            loadAvg = max(loadAvg, 0)
+            return loadAvg
         return 0
 
     @rqutil.Memoize
@@ -299,6 +318,9 @@ class Machine:
             for line in statFile:
                 if line.startswith("btime"):
                     return int(line.split()[1])
+
+        if platform.system() == 'Windows':
+            return int(uptime.uptime())
         return 0
 
     @rqutil.Memoize
@@ -324,16 +346,24 @@ class Machine:
             try:
                 # /shots/spi/home/bin/spinux1/cudaInfo
                 # /shots/spi/home/bin/rhel7/cudaInfo
-                cudaInfo = commands.getoutput('/usr/local/spi/rqd3/cudaInfo')
-                if 'There is no device supporting CUDA' in cudaInfo:
-                    self.gpuNotSupported = True
-                else:
-                    results = cudaInfo.splitlines()[-1].split()
-                    #  TotalMem 1023 Mb  FreeMem 968 Mb
-                    # The int(math.ceil(int(x) / 32.0) * 32) rounds up to the next multiple of 32
-                    self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
-                    self.gpuResults['free'] = int(results[4]) * KILOBYTE
-                    self.gpuResults['updated'] = time.time()
+                if platform.system() == 'Linux':
+                    cudaInfo = commands.getoutput('/usr/local/spi/rqd3/cudaInfo')
+                    if 'There is no device supporting CUDA' in cudaInfo:
+                        self.gpuNotSupported = True
+                    else:
+                        results = cudaInfo.splitlines()[-1].split()
+                        #  TotalMem 1023 Mb  FreeMem 968 Mb
+                        # The int(math.ceil(int(x) / 32.0) * 32) rounds up to the next multiple of 32
+                        self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
+                        self.gpuResults['free'] = int(results[4]) * KILOBYTE
+                        self.gpuResults['updated'] = time.time()
+                elif platform.system() == 'Windows':
+                    if len(GPUtil.getGPUs()) != 0:
+                        self.gpuResults['total'] = int(math.ceil(int(GPUtil.getGPUs()[0].memoryTotal) / 32.0) * 32) * KILOBYTE
+                        self.gpuResults['free'] = int(GPUtil.getGPUs()[0].memoryFree) * KILOBYTE
+                        self.gpuResults['updated'] = time.time()
+                    else:
+                        self.gpuNotSupported = True
             except Exception as e:
                 log.warning('Failed to get FreeMem from cudaInfo due to: %s at %s' % \
                             (e, traceback.extract_tb(sys.exc_info()[2])))
@@ -460,9 +490,12 @@ class Machine:
             # Windows CPU information
             import multiprocessing
             __totalCores = multiprocessing.cpu_count() * 100
-            if __totalCores > 1200:
-                __totalCores = __totalCores / 2
-                __numProcs = 2
+            # if __totalCores > 1200:
+            #     __totalCores = __totalCores / 2
+            #     __numProcs = 2
+
+            __totalCores = __totalCores / 2
+            __numProcs = 2
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
@@ -614,7 +647,10 @@ class Machine:
         return self.__bootReport
 
     def __enabledHT(self):
-        return 'hyperthreadingMultiplier' in self.__renderHost.attributes
+        if platform.system() == 'Linux':
+            return 'hyperthreadingMultiplier' in self.__renderHost.attributes
+        elif platform.system() == 'Windows':
+            return True
 
     def setupHT(self):
         """ Setup rqd for hyper-threading """
