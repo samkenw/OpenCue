@@ -484,16 +484,16 @@ class JobActions(AbstractActions):
         self._update()
 
 
-    useLocalCores_info = ["Use local cores...",
-                          "Set a single job to use the local desktop cores",
-                          "configure"]
+    # useLocalCores_info = ["Use local cores...",
+    #                       "Set a single job to use the local desktop cores",
+    #                       "configure"]
 
-    def useLocalCores(self, rpcObjects=None):
-        jobs = self._getOnlyJobObjects(rpcObjects)
-        if jobs:
-            job = jobs[0]
-            dialog = cuegui.LocalBooking.LocalBookingDialog(job, self._caller)
-            dialog.exec_()
+    # def useLocalCores(self, rpcObjects=None):
+    #     jobs = self._getOnlyJobObjects(rpcObjects)
+    #     if jobs:
+    #         job = jobs[0]
+    #         dialog = cuegui.LocalBooking.LocalBookingDialog(job, self._caller)
+    #         dialog.exec_()
 
     copyLogFileDir_info = ["Copy log file directory", None, "configure"]
     def copyLogFileDir(self, rpcObjects=None):
