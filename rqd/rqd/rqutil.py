@@ -26,12 +26,12 @@ Contact: Middle-Tier
 SVN: $Id$
 """
 
-import crypt
+# import crypt
 import functools
-import grp
+# import grp
 import os
 import platform
-import pwd
+# import pwd
 import random
 import socket
 import subprocess
@@ -40,7 +40,7 @@ import threading
 import rqconstants
 
 PERMISSIONS = threading.Lock()
-HIGH_PERMISSION_GROUPS = os.getgroups()
+# HIGH_PERMISSION_GROUPS = os.getgroups()
 
 
 class Memoize(object):
@@ -77,7 +77,8 @@ def permissionsHigh():
     os.setegid(os.getgid())
     os.seteuid(os.getuid())
     try:
-        os.setgroups(HIGH_PERMISSION_GROUPS)
+        pass
+        # os.setgroups(HIGH_PERMISSION_GROUPS)
     except Exception:
         pass
 
@@ -103,8 +104,8 @@ def permissionsUser(uid, gid):
     PERMISSIONS.acquire()
     __becomeRoot()
     try:
-        username = pwd.getpwuid(uid).pw_name
-        groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
+        # username = pwd.getpwuid(uid).pw_name
+        # groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
         os.setgroups(groups)
     except Exception:
         pass
@@ -118,7 +119,8 @@ def __becomeRoot():
         os.setegid(os.getgid())
         os.seteuid(os.getuid())
         try:
-            os.setgroups(HIGH_PERMISSION_GROUPS)
+            pass
+            # os.setgroups(HIGH_PERMISSION_GROUPS)
         except Exception:
             pass
 
@@ -130,11 +132,12 @@ def checkAndCreateUser(username):
         pwd.getpwnam(username)
         return
     except KeyError:
-        subprocess.check_call([
-            'useradd',
-            '-p', crypt.crypt(username, str(random.randint(1, 10000))),
-            username
-        ])
+        print '>>> ERROR HERE: ', __file__, 'line: 133'
+        # subprocess.check_call([
+        #     'useradd',
+        #     '-p', crypt.crypt(username, str(random.randint(1, 10000))),
+        #     username
+        # ])
 
 
 def getHostIp():
