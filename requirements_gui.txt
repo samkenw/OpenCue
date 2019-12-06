@@ -1,1 +1,3 @@
 PySide2==5.11.2
+wexpect
+pywin32
