@@ -91,6 +91,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         self.__num_frames = QtWidgets.QSpinBox(self)
         self.__num_frames.setValue(1)
+        if cuegui.Utils.isFrame(self.__target):
+            self.__num_frames.setDisabled(True)
 
         self.__frame_warn = QtWidgets.QLabel(self)
 
