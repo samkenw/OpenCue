@@ -73,6 +73,8 @@ class FrameEtaGenerator(object):
         except:
             self.frame_results['percent_complete']=0
         linecache.clearcache()
+
+        print('>>>>>>', self.frame_results['percent_complete'])
         return self.frame_results
 
     
@@ -138,7 +140,7 @@ class FrameEtaGenerator(object):
             buildTime = self.GetFrameBuildTime(frame)
             self.scene_build_seconds=buildTime['scene_build_seconds']
             self.scene_build_time=buildTime['scene_build_time']
-            if self.scene_build_seconds!=0:
+            if True: #self.scene_build_seconds!=0:
                 #doesn't look for percentages if it can't find a scenebuild
                 line = self.GetFrameStartTime(frame)
                 if line !='':
