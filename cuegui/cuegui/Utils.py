@@ -465,7 +465,7 @@ def popupView(file, facility=None):
             job_log_cmd = QtGui.qApp.settings.value("LogEditor")
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
-        job_log_cmd.append(str(file))
+        job_log_cmd.append(os.path.normpath(str(file)))
         checkShellOut(job_log_cmd)
 
 
