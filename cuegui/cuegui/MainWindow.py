@@ -38,8 +38,12 @@ import cuegui.Logger
 import cuegui.Plugins
 import cuegui.Utils
 
+import mv_vfx_framework_ui
+
 
 logger = cuegui.Logger.getLogger(__file__)
+
+from mv_vfx_framework_ui.widget_header import DefaultDialog
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -52,6 +56,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, app_name, app_version, window_name, parent = None):
         QtWidgets.QMainWindow.__init__(self, parent)
 
+        mv_vfx_framework_ui.styling.apply_stylesheet(self)
+
         # Setup variables
         self.qApp = QtGui.qApp
         self.settings = QtGui.qApp.settings
@@ -62,6 +68,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.name = window_name
         else:
             self.name = self.windows_names[0]
+
+        self.dialog = DefaultDialog(None, 'OpenCue - {}'.format(self.name), self.app_version, self, {'hide_header': False, 'hide_logo': False, 'frameless': False}, QtWidgets.QApplication.activeWindow())
+        self.dialog.closeEvent = lambda a: self.__windowCloseWindow
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -116,6 +125,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def openUserGuide(self):
         cuegui.Utils.openURL(cuegui.Constants.URL_USERGUIDE)
+
+    def show(self):
+        self.dialog.show()
 
 ################################################################################
 # Handles facility menu
@@ -230,10 +242,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """Creates the menu items for dealing with multiple main windows"""
         self.windowMenu = menu
 
-        # Menu Bar: Window -> Change Window Title
-        changeTitle = QtWidgets.QAction("Change Window Title", self)
-        changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)
-        menu.addAction(changeTitle)
+        # # Menu Bar: Window -> Change Window Title
+        # changeTitle = QtWidgets.QAction("Change Window Title", self)
+        # changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)
+        # menu.addAction(changeTitle)
 
         # Menu Bar: Window -> Save Window Settings
         saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
@@ -332,6 +344,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowOpened(self):
         """Called from __init__ on window creation"""
         self.qApp.quit.connect(self.close)
+        self.qApp.quit.connect(self.dialog.close)
         self.windows.append(self)
         self.qApp.closingApp = False
 
@@ -353,6 +366,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowCloseWindow(self):
         """Closes the current window"""
         self.close()
+        self.dialog.close()
 
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
@@ -372,11 +386,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __toggleFullscreen(self):
         """Toggles the window state between fullscreen and maximized"""
-        if self.isFullScreen():
-            self.showNormal()
-            self.showMaximized()
+        if self.parent():
+            parent = self.parent()
         else:
-            self.showFullScreen()
+            parent = self
+        if parent.isFullScreen():
+            parent.showNormal()
+            parent.showMaximized()
+        else:
+            parent.showFullScreen()
 
 ################################################################################
     def keyPressEvent(self, event):
@@ -399,8 +417,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                 self.app_name))
         self.restoreState(self.settings.value("%s/State" % self.name,
                                               QtCore.QByteArray()))
-        self.resize(self.settings.value("%s/Size" % self.name,
-                                        QtCore.QSize(1280, 1024)))
+        # self.resize(self.settings.value("%s/Size" % self.name,
+        #                                 QtCore.QSize(1280, 1024)))
         self.move(self.settings.value("%s/Position" % self.name,
                                       QtCore.QPoint(0, 0)))
 
