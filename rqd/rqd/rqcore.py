@@ -28,6 +28,9 @@ import tempfile
 import threading
 import time
 import traceback
+import getpass
+
+import psutil
 
 import rqconstants
 import rqutil
@@ -302,6 +305,47 @@ class FrameAttendantThread(threading.Thread):
         """The steps required to handle a frame under windows"""
         pass
 
+    # def runWindows(self):
+    #     """The steps required to handle a frame under windows"""
+    #     frameInfo = self.frameInfo
+    #     runFrame = self.runFrame
+
+    #     self.__createEnvVariables()
+    #     self.__writeHeader()
+
+    #     try:
+    #         runFrame.command = runFrame.command.replace('%{frame}', self.frameEnv['CUE_IFRAME'])
+    #         tempCommand = [self._createCommandFile(runFrame.command)]
+
+    #         frameInfo.forkedCommand = subprocess.Popen(tempCommand,
+    #                                                    stdin=subprocess.PIPE,
+    #                                                    stdout=self.rqlog,
+    #                                                    stderr=self.rqlog)
+    #     except:
+    #         log.critical("Failed subprocess.Popen: Due to: \n%s" % ''.join(
+    #             traceback.format_exception(*sys.exc_info())))
+
+    #     frameInfo.pid = frameInfo.forkedCommand.pid
+
+    #     if not self.rqCore.updateRssThread.isAlive():
+    #         self.rqCore.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL,
+    #                                                       self.rqCore.updateRss)
+    #         self.rqCore.updateRssThread.start()
+
+    #     frameInfo.forkedCommand.wait()
+
+    #     # Find exitStatus and exitSignal
+    #     returncode = frameInfo.forkedCommand.returncode
+    #     frameInfo.exitStatus = returncode
+    #     frameInfo.exitSignal = returncode
+
+    #     frameInfo.realtime = 0
+    #     frameInfo.utime = 0
+    #     frameInfo.stime = 0
+
+    #     self.__writeFooter()
+    #     self.__cleanup()
+
     def runWindows(self):
         """The steps required to handle a frame under windows"""
         frameInfo = self.frameInfo
@@ -314,10 +358,16 @@ class FrameAttendantThread(threading.Thread):
             runFrame.command = runFrame.command.replace('%{frame}', self.frameEnv['CUE_IFRAME'])
             tempCommand = [self._createCommandFile(runFrame.command)]
 
-            frameInfo.forkedCommand = subprocess.Popen(tempCommand,
-                                                       stdin=subprocess.PIPE,
-                                                       stdout=self.rqlog,
-                                                       stderr=self.rqlog)
+            cpu_list = []
+            if 'CPU_LIST' in runFrame.attributes:
+                cpu_list = list(map(int, runFrame.attributes['CPU_LIST'].split(',')))
+            
+            log.warning('>>>>>>>> {}'.format(cpu_list))
+
+            frameInfo.forkedCommand = psutil.Popen(tempCommand, stdin=subprocess.PIPE,stdout=self.rqlog, stderr=self.rqlog)
+            frameInfo.forkedCommand.cpu_affinity(cpu_list)
+            threading.Timer(0.1, self.set_child_affinity, args=[frameInfo.forkedCommand, cpu_list]).start()
+
         except:
             log.critical("Failed subprocess.Popen: Due to: \n%s" % ''.join(
                 traceback.format_exception(*sys.exc_info())))
@@ -342,6 +392,20 @@ class FrameAttendantThread(threading.Thread):
 
         self.__writeFooter()
         self.__cleanup()
+
+    def set_child_affinity(self, proc, cpu_list):
+        if proc.is_running():
+            try:
+                proc.cpu_affinity(cpu_list)
+            except:
+                return
+            for child in proc.children(recursive=True):
+                if child.is_running():
+                    try:
+                        child.cpu_affinity(cpu_list)
+                    except:
+                        return 
+            threading.Timer(0.1, self.set_child_affinity, args=[proc, cpu_list]).start()
 
     def runDarwin(self):
         """The steps required to handle a frame under mac"""
@@ -407,9 +471,11 @@ class FrameAttendantThread(threading.Thread):
         runFrame = self.runFrame
 
         # Windows has a special log path
-        if platform.system() == "Windows":
-            runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
-                                                                   runFrame.job_id)
+        # if platform.system() == "Windows":
+        #     # runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
+        #     #                                                        runFrame.job_id)
+        #     runFrame.log_dir = 'D:/dev/OpenCueProject/logs/%s--%s' % (runFrame.job_name,
+        #                                                            runFrame.job_id)
 
         try:
             runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
@@ -695,6 +761,7 @@ class RqCore(object):
         @type  reqRelease: int
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
         self.__threadLock.acquire()
+ 
         try:
             self.cores.booked_cores -= reqRelease
             maxRelease = (self.cores.total_cores -
@@ -878,10 +945,12 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if os.getuid() != 0:
-            log.warning("Not starting nimby, not running as root")
-            return
-        if not self.nimby.active and platform.system() == "Linux":
+        if platform.system() == 'Linux':
+            if os.getuid() != 0:
+                log.warning("Not starting nimby, not running as root")
+                return
+
+        if not self.nimby.active: # and platform.system() == "Linux":
             try:
                 self.nimby.run()
                 log.info("Nimby has been activated")
@@ -890,6 +959,9 @@ class RqCore(object):
                 err = "Nimby is in the process of shutting down"
                 log.warning(err)
                 raise RqdException(err)
+
+        else:
+            log.warning('>>>> System is not NIMBY enabled.')
 
     def nimbyOff(self):
         """Deactivates nimby and unlocks any nimby lock"""
