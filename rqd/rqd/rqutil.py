@@ -37,7 +37,7 @@ import socket
 import subprocess
 import threading
 
-import rqconstants
+from . import rqconstants
 
 PERMISSIONS = threading.Lock()
 # HIGH_PERMISSION_GROUPS = os.getgroups()
@@ -132,7 +132,7 @@ def checkAndCreateUser(username):
         pwd.getpwnam(username)
         return
     except KeyError:
-        print '>>> ERROR HERE: ', __file__, 'line: 133'
+        print(('>>> ERROR HERE: ', __file__, 'line: 133'))
         # subprocess.check_call([
         #     'useradd',
         #     '-p', crypt.crypt(username, str(random.randint(1, 10000))),

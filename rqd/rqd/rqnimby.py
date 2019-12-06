@@ -26,8 +26,8 @@ import threading
 import logging as log
 import pynput
 
-import rqconstants
-import rqutil
+from . import rqconstants
+from . import rqutil
 
 
 class Nimby(threading.Thread):

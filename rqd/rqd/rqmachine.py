@@ -27,7 +27,6 @@ Contact: Middle-Tier
 SVN: $Id$
 """
 
-import commands
 import errno
 import logging as log
 import math
@@ -35,7 +34,6 @@ import os
 import platform
 import psutil
 import re
-import statvfs
 import subprocess
 import sys
 import tempfile
@@ -50,17 +48,17 @@ if platform.system() in ('Linux', 'Darwin'):
     import resource
     import yaml
 
-import rqconstants
-from rqexceptions import CoreReservationFailureException
-import rqutil
-import rqswap
+from . import rqconstants
+from .rqexceptions import CoreReservationFailureException
+from . import rqutil
+from . import rqswap
 
 if platform.system() == "win32":
     import win32process
     import win32api
 
-from compiled_proto import host_pb2
-from compiled_proto import report_pb2
+from .compiled_proto import host_pb2
+from .compiled_proto import report_pb2
 
 KILOBYTE = 1024
 
@@ -110,7 +108,7 @@ class Machine:
         """Returns False if nimby should not unlock due to resource limits"""
         if not self.isNimbySafeToRunJobs():
             return False
-        if self.getLoadAvg() / self.__coreInfo.total_cores > rqconstants.MAXIMUM_LOAD:
+        if self.getLoadAvg() // self.__coreInfo.total_cores > rqconstants.MAXIMUM_LOAD:
             return False
         return True
 
@@ -224,7 +222,7 @@ class Machine:
             pidData = {"time": now}
             bootTime = self.getBootTime()
 
-            values = frames.values()
+            values = list(frames.values())
 
             for frame in values:
                 if frame.pid > 0:
@@ -234,7 +232,7 @@ class Machine:
                     pcpu = 0
                     if rqconstants.ENABLE_PTREE:
                         ptree = []
-                    for pid, data in pids.iteritems():
+                    for pid, data in pids.items():
                         if data["session"] == session:
                             try:
                                 rss += int(data["rss"])
@@ -248,18 +246,18 @@ class Machine:
 
                                 # Seconds of process life, boot time is already in seconds
                                 seconds = now - bootTime - \
-                                        float(data["start_time"]) / rqconstants.SYS_HERTZ
+                                        float(data["start_time"]) // rqconstants.SYS_HERTZ
                                 if seconds:
-                                    if self.__pidHistory.has_key(pid):
+                                    if pid in self.__pidHistory:
                                         # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
                                         oldTotalTime, oldSeconds, oldPidPcpu = self.__pidHistory[pid]
                                         #checking if already updated data
                                         if seconds != oldSeconds:
                                             pidPcpu = (totalTime - oldTotalTime) / float(seconds - oldSeconds)
-                                            pcpu += (oldPidPcpu + pidPcpu) / 2 # %cpu
+                                            pcpu += (oldPidPcpu + pidPcpu) // 2 # %cpu
                                             pidData[pid] = totalTime, seconds, pidPcpu
                                     else:
-                                        pidPcpu = totalTime / seconds
+                                        pidPcpu = totalTime // seconds
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
 
@@ -269,8 +267,8 @@ class Machine:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
 
-                    rss = (rss * resource.getpagesize()) / 1024
-                    vsize = int(vsize/1024)
+                    rss = (rss * resource.getpagesize()) // 1024
+                    vsize = int(vsize//1024)
 
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
@@ -297,14 +295,14 @@ class Machine:
             loadAvgFile = open(rqconstants.PATH_LOADAVG, "r")
             loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
             if self.__enabledHT():
-                loadAvg = loadAvg / 2
+                loadAvg = loadAvg // 2
             loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
             return loadAvg
         elif platform.system() == 'Windows':
             loadAvg = int(float(psutil.getloadavg()[0]) * 100)
             if self.__enabledHT():
-                loadAvg = loadAvg / 2
+                loadAvg = loadAvg // 2
             loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
             return loadAvg
@@ -347,14 +345,14 @@ class Machine:
                 # /shots/spi/home/bin/spinux1/cudaInfo
                 # /shots/spi/home/bin/rhel7/cudaInfo
                 if platform.system() == 'Linux':
-                    cudaInfo = commands.getoutput('/usr/local/spi/rqd3/cudaInfo')
+                    cudaInfo = subprocess.getoutput('/usr/local/spi/rqd3/cudaInfo')
                     if 'There is no device supporting CUDA' in cudaInfo:
                         self.gpuNotSupported = True
                     else:
                         results = cudaInfo.splitlines()[-1].split()
                         #  TotalMem 1023 Mb  FreeMem 968 Mb
                         # The int(math.ceil(int(x) / 32.0) * 32) rounds up to the next multiple of 32
-                        self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
+                        self.gpuResults['total'] = int(math.ceil(int(results[1]) // 32.0) * 32) * KILOBYTE
                         self.gpuResults['free'] = int(results[4]) * KILOBYTE
                         self.gpuResults['updated'] = time.time()
                 elif platform.system() == 'Windows':
@@ -447,7 +445,7 @@ class Machine:
         if platform.system() == "Linux" or pathCpuInfo is not None:
             # Reads static information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize / KILOBYTE
+            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
 
             # Reads static information from /proc/cpuinfo
             cpuinfoFile = open(pathCpuInfo or rqconstants.PATH_CPUINFO, "r")
@@ -465,12 +463,12 @@ class Machine:
                                                / int(singleCore.get('cpu cores', '1')))
 
                     __totalCores += rqconstants.CORE_VALUE
-                    if singleCore.has_key("core id") \
-                       and singleCore.has_key("physical id") \
+                    if "core id" in singleCore \
+                       and "physical id" in singleCore \
                        and not singleCore["physical id"] in procsFound:
                         procsFound.append(singleCore["physical id"])
                         __numProcs += 1
-                    elif not singleCore.has_key("core id"):
+                    elif "core id" not in singleCore:
                         __numProcs += 1
                     singleCore = {}
                 # An entry without data
@@ -484,8 +482,8 @@ class Machine:
             stat = self.getWindowsMemory()
             TEMP_DEFAULT = 1048576
             self.__renderHost.total_mcp = TEMP_DEFAULT
-            self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
-            self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
+            self.__renderHost.total_mem = int(stat.ullTotalPhys // 1024)
+            self.__renderHost.total_swap = int(stat.ullTotalPageFile // 1024)
 
             # Windows CPU information
             import multiprocessing
@@ -494,7 +492,7 @@ class Machine:
             #     __totalCores = __totalCores / 2
             #     __numProcs = 2
 
-            __totalCores = __totalCores / 2
+            __totalCores = __totalCores // 2
             __numProcs = 2
 
         # All other systems will just have one proc/core
@@ -515,12 +513,12 @@ class Machine:
             __numProcs = rqconstants.OVERRIDE_PROCS
 
         # Don't report/reserve cores added due to hyperthreading
-        __totalCores = __totalCores / hyperthreadingMultiplier
+        __totalCores = __totalCores // hyperthreadingMultiplier
 
         self.__coreInfo.idle_cores = __totalCores
         self.__coreInfo.total_cores = __totalCores
         self.__renderHost.num_procs = __numProcs
-        self.__renderHost.cores_per_proc = __totalCores / __numProcs
+        self.__renderHost.cores_per_proc = __totalCores // __numProcs
 
         if hyperthreadingMultiplier > 1:
            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
@@ -550,15 +548,15 @@ class Machine:
         return self.__windowsStat
 
     def updateMacMemory(self):
-        memsizeOutput = commands.getoutput('sysctl hw.memsize').strip()
+        memsizeOutput = subprocess.getoutput('sysctl hw.memsize').strip()
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
         if memsizeMatch:
-            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) / 1024
+            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) // 1024
         else:
             self.__renderHost.total_mem = 0
 
-        vmStatLines = commands.getoutput('vm_stat').split('\n')
+        vmStatLines = subprocess.getoutput('vm_stat').split('\n')
         lineRegex = re.compile(r'^(?P<field>.+):[\s]+(?P<pages>[\d]+).$')
         vmStats = {}
         for line in vmStatLines[1:-2]:
@@ -566,11 +564,11 @@ class Machine:
             if match:
                 vmStats[match.group('field')] = int(match.group('pages')) * 4096
 
-        freeMemory = vmStats.get("Pages free", 0) / 1024
-        inactiveMemory = vmStats.get("Pages inactive", 0) / 1024
+        freeMemory = vmStats.get("Pages free", 0) // 1024
+        inactiveMemory = vmStats.get("Pages inactive", 0) // 1024
         self.__renderHost.free_mem = freeMemory + inactiveMemory
 
-        swapStats = commands.getoutput('sysctl vm.swapusage').strip()
+        swapStats = subprocess.getoutput('sysctl vm.swapusage').strip()
         swapRegex = re.compile(r'^.* free = (?P<freeMb>[\d]+)M .*$')
         swapMatch = swapRegex.match(swapStats)
         if swapMatch:
@@ -583,8 +581,8 @@ class Machine:
         if platform.system() == "Linux":
             # Reads dynamic information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.free_mcp = (mcpStat[statvfs.F_BAVAIL]
-                                         * mcpStat[statvfs.F_BSIZE]) / KILOBYTE
+            self.__renderHost.free_mcp = (mcpStat[mcpStat.f_bavail]
+                                         * mcpStat[mcpStat.f_bsize]) // KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
             with open(rqconstants.PATH_MEMINFO, "r") as fp:
@@ -610,8 +608,8 @@ class Machine:
             TEMP_DEFAULT = 1048576
             stats = self.getWindowsMemory()
             self.__renderHost.free_mcp = TEMP_DEFAULT
-            self.__renderHost.free_swap = int(stats.ullAvailPageFile / 1024)
-            self.__renderHost.free_mem = int(stats.ullAvailPhys / 1024)
+            self.__renderHost.free_swap = int(stats.ullAvailPageFile // 1024)
+            self.__renderHost.free_mem = int(stats.ullAvailPhys // 1024)
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
@@ -656,7 +654,7 @@ class Machine:
         """ Setup rqd for hyper-threading """
 
         if self.__enabledHT():
-            self.__tasksets = set(range(self.__coreInfo.total_cores / 100))
+            self.__tasksets = set(range(self.__coreInfo.total_cores // 100))
 
     def reserveHT(self, reservedCores):
         """ Reserve cores for use by taskset
@@ -675,18 +673,18 @@ class Machine:
             log.debug('Taskset: Can not reserveHT with fractional cores')
             return None
 
-        log.debug('Taskset: Requesting reserve of %s' % (reservedCores / 100))
+        log.debug('Taskset: Requesting reserve of %s' % (reservedCores // 100))
 
-        if len(self.__tasksets) < reservedCores / 100:
+        if len(self.__tasksets) < reservedCores // 100:
             err = 'Not launching, insufficient hyperthreading cores to reserve based on reservedCores'
             log.critical(err)
             raise CoreReservationFailureException(err)
 
         tasksets = []
-        for x in range(reservedCores / 100):
+        for x in range(reservedCores // 100):
             core = self.__tasksets.pop()
             tasksets.append(str(core))
-            tasksets.append(str(core + self.__coreInfo.total_cores / 100))
+            tasksets.append(str(core + self.__coreInfo.total_cores // 100))
 
         log.debug('Taskset: Reserving cores - %s' % ','.join(tasksets))
 
@@ -705,5 +703,5 @@ class Machine:
 
         log.debug('Taskset: Releasing cores - %s' % reservedHT)
         for core in reservedHT.split(','):
-            if int(core) < self.__coreInfo.total_cores / 100:
+            if int(core) < self.__coreInfo.total_cores // 100:
                 self.__tasksets.add(int(core))

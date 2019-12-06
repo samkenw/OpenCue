@@ -115,20 +115,20 @@ def setupLogging():
 
 setupLogging()
 
-from rqcore import RqCore
-import rqutil
-import rqconstants
+from . rqcore import RqCore
+from . import rqutil
+from . import rqconstants
 
 def usage():
     """Prints command line syntax"""
     s = sys.stderr
-    print >> s, "SYNOPSIS"
-    print >> s, "  ", sys.argv[0], "[options]\n"
-    print >> s, "  -d | --daemon          => Run as daemon"
-    print >> s, "       --nimbyoff        => Disables nimby activation"
-    print >> s, "  -c                     => Provide an alternate config file"
-    print >> s, "                            Defaults to /etc/rqd3/rqd3.conf"
-    print >> s, "                            Config file is optional"
+    print("SYNOPSIS", file=s)
+    print("  ", sys.argv[0], "[options]\n", file=s)
+    print("  -d | --daemon          => Run as daemon", file=s)
+    print("       --nimbyoff        => Disables nimby activation", file=s)
+    print("  -c                     => Provide an alternate config file", file=s)
+    print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
+    print("                            Config file is optional", file=s)
 
 def main():
     if platform.system() == 'Linux' and os.getuid() != 0:
