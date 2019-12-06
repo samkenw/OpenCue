@@ -63,9 +63,10 @@ class LocalBookingWidget(QtWidgets.QWidget):
         try:
             owner = opencue.api.getOwner(os.environ["USER"])
             for host in owner.getHosts():
-                if host.data.lockState != opencue.api.host_pb2.OPEN:
+                if host.data.lock_state != opencue.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
-        except Exception:
+        except Exception as e:
+            print('>>>>>', e)
             pass
 
         self.__deed_button = None
@@ -190,7 +191,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         if cuegui.Utils.isJob(self.__target):
             return self.__target.data.name
         elif cuegui.Utils.isLayer(self.__target):
-            return self.__target.name
+            return self.__target.parent().data.name
         elif cuegui.Utils.isFrame(self.__target):
             return self.__parent.getJob().data.name
         else:
@@ -212,17 +213,17 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__stack.setCurrentIndex(1)
                 self.__btn_clear.setText("Clear")
                 self.__btn_clear.setDisabled(False)
-                self.__run_cores.setRange(1, int(host.data.idleCores) + rp.maxCores // 100)
-                self.__run_cores.setValue(rp.maxCores // 100)
-                self.__run_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
-                self.__run_mem.setValue(int(rp.maxMemory / 1024 / 1024))
+                self.__run_cores.setRange(1, int(host.data.idle_cores) + rp.data.max_cores // 100)
+                self.__run_cores.setValue(rp.data.max_cores // 100)
+                self.__run_mem.setRange(1, int(host.data.total_memory / 1024 / 1024))
+                self.__run_mem.setValue(int(rp.data.max_memory / 1024 / 1024))
 
             else:
                 self.__stack.setCurrentIndex(0)
-                self.__num_frames.setRange(1, host.data.idleCores)
-                self.__num_threads.setRange(1, host.data.idleCores)
-                self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
-                self.__num_threads.setRange(1, host.data.idleCores)
+                self.__num_frames.setRange(1, host.data.idle_cores)
+                self.__num_threads.setRange(1, host.data.idle_cores)
+                self.__num_mem.setRange(1, int(host.data.total_memory / 1024 / 1024))
+                self.__num_threads.setRange(1, host.data.idle_cores)
         except Exception as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
