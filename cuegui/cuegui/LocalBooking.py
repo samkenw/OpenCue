@@ -234,7 +234,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             _show = opencue.api.findShow(show_name)
         except Exception as e:
             msg = QtWidgets.QMessageBox(self)
-            msg.setText("Error %s, please setshot and rerun cuetopia", e)
+            msg.setText("Error {}, please setshot and rerun cuetopia. Showname is: {}".format(e, show_name))
             msg.exec_()
             return
 
@@ -263,7 +263,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         except Exception as e:
             msg = QtWidgets.QMessageBox(self)
             msg.setText("Unable to determine your machine's hostname. " +
-                        "It is not setup properly for local booking")
+                        "It is not setup properly for local booking. ERROR: {}".format(e))
 
             msg.exec_()
 
