@@ -105,7 +105,8 @@ def setupLogging():
 
     log.basicConfig(level=consoleLevel, format=consoleFormat)
     try:
-        logfile = SysLogHandler(address='/dev/log')
+        # logfile = SysLogHandler(address='/dev/log')
+        logfile = SysLogHandler()
     except socket.error:
         logfile = SysLogHandler()
     logfile.setLevel(fileLevel)
