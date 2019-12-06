@@ -603,7 +603,8 @@ def dropEvent(event, format = "application/x-job-names"):
     if event.mimeData().hasFormat(format):
         item = event.mimeData().data(format)
         stream = QtCore.QDataStream(item, QtCore.QIODevice.ReadOnly)
-        names = stream.readQString()
+        names = str()
+        stream >> names
         event.accept()
         return [name for name in str(names).split(":") if name]
 
@@ -611,8 +612,8 @@ def dropEvent(event, format = "application/x-job-names"):
 def mimeDataAdd(mimeData, format, objects):
     data = QtCore.QByteArray()
     stream = QtCore.QDataStream(data, QtCore.QIODevice.WriteOnly)
-    text = ":".join(objects)
-    stream.writeQString(text)
+    text = str(":".join(objects))
+    stream << text
     mimeData.setData(format, data)
 
 
