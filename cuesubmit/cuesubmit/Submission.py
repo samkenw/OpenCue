@@ -13,16 +13,12 @@
 #  limitations under the License.
 
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
-
-from builtins import str
 from outline import Outline, cuerun
 from outline.modules.shell import Shell
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
+import platform 
 
 
 def buildMayaCmd(layerData):
@@ -31,12 +27,28 @@ def buildMayaCmd(layerData):
     mayaFile = layerData.cmd.get('mayaFile')
     if not mayaFile:
         raise ValueError('No Maya File provided. Cannot submit job.')
-    renderCommand = '{renderCmd} -r file -s {frameToken} -e {frameToken}'.format(
-        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
+    additional_flags = renderer_specific_flags(layerData)
+    renderCommand = '{renderCmd} -r {renderer} -s {frameToken} -e {frameToken} {additional_flags}'.format(
+        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN, 
+        renderer= additional_flags['renderer'], additional_flags=additional_flags['other'])
     if camera:
         renderCommand += ' -cam {}'.format(camera)
     renderCommand += ' {}'.format(mayaFile)
-    return renderCommand
+    return get_rez_command() + renderCommand
+
+def renderer_specific_flags(layerData):
+    flags = {
+        'renderer': 'file',
+        'other': ''
+    }
+    if 'arnold' in layerData.services:
+        flags['renderer'] = 'arnold'
+        flags['other'] = '-ai:lve 1'
+
+    return flags
+
+def get_rez_command():
+    return 'rez-env maya-2018 maya_arnold -- '
 
 
 def buildNukeCmd(layerData):
@@ -135,4 +147,4 @@ def submitJob(jobData):
             raise ValueError('unrecognized layer type %s' % layerData.layerType)
         outline.add_layer(layer)
         lastLayer = layer
-    return cuerun.launch(outline, use_pycuerun=False)
+    return cuerun.launch(outline, use_pycuerun=False, os=platform.system())
