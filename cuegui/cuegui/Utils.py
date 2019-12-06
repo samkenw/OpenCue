@@ -270,9 +270,11 @@ def checkShellOut(cmdList, lockGui=False):
     @param: True will lock the gui while the cmd is executed, otherwise it is run in the background.
     """
     if not lockGui:
-        cmdList.append('&')
+        cmd = subprocess.Popen
+    else:
+        cmd = subprocess.check_call
     try:
-        subprocess.check_call(cmdList)
+        cmd(cmdList)
     except subprocess.CalledProcessError as e:
         text = 'Command {cmd} failed with returncode {code}. {msg}.\n' \
                'Please check your EDITOR environment variable and the ' \
