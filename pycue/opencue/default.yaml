@@ -11,7 +11,7 @@ cuebot.timeout: 10000
 cuebot.max_message_bytes: 104857600
 cuebot.exception_retries: 3
 
-cuebot.facility_default: cloud
+cuebot.facility_default: dev
 cuebot.facility:
     dev:
         - 127.0.0.1
