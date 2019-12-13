@@ -38,12 +38,15 @@ import cuegui.Logger
 import cuegui.Plugins
 import cuegui.Utils
 
-import mv_vfx_framework_ui
 
 
 logger = cuegui.Logger.getLogger(__file__)
 
-from mv_vfx_framework_ui.widget_header import DefaultDialog
+try:
+    import mv_vfx_framework_ui
+    from mv_vfx_framework_ui.widget_header import DefaultDialog
+except Exception as e:
+    pass
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -56,7 +59,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, app_name, app_version, window_name, parent = None):
         QtWidgets.QMainWindow.__init__(self, parent)
 
-        mv_vfx_framework_ui.styling.apply_stylesheet(self)
+        try:
+            mv_vfx_framework_ui.styling.apply_stylesheet(self)
+        except Exception as e:
+            pass
 
         # Setup variables
         self.qApp = QtGui.qApp
@@ -69,8 +75,11 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.name = self.windows_names[0]
 
-        self.dialog = DefaultDialog(None, 'OpenCue - {}'.format(self.name), self.app_version, self, {'hide_header': False, 'hide_logo': False, 'frameless': False}, QtWidgets.QApplication.activeWindow())
-        self.dialog.closeEvent = lambda a: self.__windowCloseWindow
+        try:
+            self.dialog = DefaultDialog(None, 'OpenCue - {}'.format(self.name), self.app_version, self, {'hide_header': False, 'hide_logo': False, 'frameless': False}, QtWidgets.QApplication.activeWindow())
+            self.dialog.closeEvent = lambda a: self.__windowCloseWindow
+        except Exception as e:
+            pass
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -127,7 +136,10 @@ class MainWindow(QtWidgets.QMainWindow):
         cuegui.Utils.openURL(cuegui.Constants.URL_USERGUIDE)
 
     def show(self):
-        self.dialog.show()
+        try:
+            self.dialog.show()
+        except Exception as e:
+            super(MainWindow, self).show()
 
 ################################################################################
 # Handles facility menu
@@ -344,7 +356,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowOpened(self):
         """Called from __init__ on window creation"""
         self.qApp.quit.connect(self.close)
-        self.qApp.quit.connect(self.dialog.close)
+        try:
+            self.qApp.quit.connect(self.dialog.close)
+        except Exception as e:
+            pass
         self.windows.append(self)
         self.qApp.closingApp = False
 
@@ -359,14 +374,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         try:
             self.windows.remove(self)
-        except:
+        except Exception as e:
             pass
         self.__windowMenuUpdate()
 
     def __windowCloseWindow(self):
         """Closes the current window"""
         self.close()
-        self.dialog.close()
+        try:
+            self.dialog.close()
+        except Exception as e:
+            pass
 
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
