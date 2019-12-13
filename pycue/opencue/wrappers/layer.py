@@ -28,6 +28,7 @@ import opencue.wrappers.depend
 import opencue.wrappers.frame
 import opencue.wrappers.limit
 import opencue.api
+import os
 
 
 class Layer(object):
@@ -150,6 +151,17 @@ class Layer(object):
         return self.stub.SetThreadable(job_pb2.LayerSetThreadableRequest(
             layer=self.data, threadable=threadable),
             timeout=Cuebot.Timeout)
+
+    def addRenderPartition(self, host, threads, cores, memory, gpu):
+        self.stub.AddRenderPartition(job_pb2.LayerAddRenderPartitionRequest(
+            layer=self.data,
+            host=host,
+            threads=threads,
+            max_cores=cores, 
+            max_memory=memory, 
+            max_gpu=gpu,
+            username=os.getenv("USER", "unknown")))
+
 
     def getWhatDependsOnThis(self):
         """Gets a list of dependencies that depend directly on this layer

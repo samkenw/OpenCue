@@ -86,6 +86,9 @@ class Job(object):
         return self.stub.RetryFrames(job_pb2.JobRetryFramesRequest(job=self.data, req=criteria),
                                      timeout=Cuebot.Timeout)
 
+    def addRenderPartition(self, *args):
+        pass
+
     def markdoneFrames(self, **request):
         """Drops any dependency that requires any frame that matches the
         FrameSearch

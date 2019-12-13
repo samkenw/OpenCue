@@ -26,6 +26,7 @@ import time
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
 import opencue.wrappers.depend
+import os
 
 
 class Frame(object):
@@ -70,6 +71,16 @@ class Frame(object):
         """Retry frame"""
         if self.data.state != job_pb2.FrameState.Value('WAITING'):
             self.stub.Retry(job_pb2.FrameRetryRequest(frame=self.data), timeout=Cuebot.Timeout)
+
+    def addRenderPartition(self, host, threads, cores, memory, gpu):
+        self.stub.AddRenderPartition(job_pb2.FrameAddRenderPartitionRequest(
+            frame=self.data,
+            host=host,
+            threads=threads,
+            max_cores=cores, 
+            max_memory=memory, 
+            max_gpu=gpu,
+            username=os.getenv("USER", "unknown")))
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this frame
