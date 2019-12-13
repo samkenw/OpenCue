@@ -14,3 +14,4 @@ six==1.11.0
 uptime
 gputil
 pynput
+2to3
