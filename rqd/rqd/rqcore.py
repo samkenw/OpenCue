@@ -530,7 +530,7 @@ class FrameAttendantThread(threading.Thread):
                         err = "Unable to rotate previous log file due to %s" % e
                         raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w", 0)
+                        self.rqlog = open(runFrame.log_dir_file, "w")
                         self.waitForFile(runFrame.log_dir_file)
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
