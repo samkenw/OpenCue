@@ -397,14 +397,14 @@ class FrameAttendantThread(threading.Thread):
         if proc.is_running():
             try:
                 proc.cpu_affinity(cpu_list)
-            except:
-                return
+            except Exception as e:
+                print('>>>> ERROR: ', e) 
             for child in proc.children(recursive=True):
                 if child.is_running():
                     try:
                         child.cpu_affinity(cpu_list)
-                    except:
-                        return 
+                    except Exception as e:
+                        print('>>>> ERROR: ', e) 
             threading.Timer(0.1, self.set_child_affinity, args=[proc, cpu_list]).start()
 
     def runDarwin(self):
