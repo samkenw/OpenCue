@@ -23,6 +23,7 @@ from __future__ import division
 from builtins import str
 import getpass
 import os
+import platform
 
 import FileSequence
 
@@ -120,4 +121,7 @@ def get_uid():
     """
     Return the current users id
     """
-    return os.getuid()
+    if platform.system() == 'Linux':
+        return os.getuid()
+    else:
+        return 1
