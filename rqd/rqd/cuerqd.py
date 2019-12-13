@@ -57,9 +57,9 @@ import logging as log
 
 import grpc
 
-from .compiled_proto import rqd_pb2
-from .compiled_proto import rqd_pb2_grpc
-from . import rqconstants
+from compiled_proto import rqd_pb2
+from compiled_proto import rqd_pb2_grpc
+import rqconstants
 
 
 class RqdHost:
