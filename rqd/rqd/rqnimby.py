@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +16,10 @@
 """Nimby allows a desktop to be used as a render host when not used."""
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import os
 import select
 import time
@@ -26,8 +28,8 @@ import threading
 import logging as log
 import pynput
 
-from . import rqconstants
-from . import rqutil
+import rqd.rqconstants
+import rqd.rqutil
 
 
 class Nimby(threading.Thread):
@@ -118,8 +120,6 @@ class Nimby(threading.Thread):
     def unlockedIdle(self):
         """Nimby State: Machine is idle, host is unlocked,
                         waiting for user activity"""
-        log.debug("unlockedIdle")
-
         while self.active and \
               self.interaction_detected == False and \
               self.rqCore.machine.isNimbySafeToRunJobs():
@@ -132,13 +132,12 @@ class Nimby(threading.Thread):
 
         if self.active:
             self.lockNimby()
-            self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
+            self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
             self.thread.start()
 
     def run(self):
         """Starts the Nimby thread"""
-        log.debug("nimby.run()")
         self.active = True
         self.mouse_listener.start()
         self.keyboard_listener.start()
@@ -146,7 +145,6 @@ class Nimby(threading.Thread):
 
     def stop(self):
         """Stops the Nimby thread"""
-        log.debug("nimby.stop()")
         if self.thread:
             self.thread.cancel()
         self.active = False

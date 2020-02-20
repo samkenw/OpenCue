@@ -36,10 +36,10 @@ def deaggregate_frame_set(frameset):
     the user specifies duplicates, which they tend to do even though
     they don't want duplicates.
 
-    @type    frameset: FileSequence.FrameSet
-    @param   frameset: The frameset to deaggregate
-    @rtype:            List
-    @return:           The list of deaggregated frames.
+    :type    frameset: FileSequence.FrameSet
+    :param   frameset: The frameset to deaggregate
+    :rtype:            List
+    :return:           The list of deaggregated frames.
     """
     # This is not a Set because sets are unordered.
 
@@ -71,11 +71,11 @@ def make_frame_set(frames, normalize=True):
     Takes an array of integers and makes a normalized
     FrameSet object.
 
-    @type  frames: List<int>
-    @param frames: The frame list to change into a FrameSet
+    :type  frames: List<int>
+    :param frames: The frame list to change into a FrameSet
 
-    @rtype: FrameSet
-    @return: a normalized FileSequence.FrameSet
+    :rtype: FrameSet
+    :return: a normalized FileSequence.FrameSet
     """
     fs = FileSequence.FrameSet(",".join([str(f) for f in frames]))
     if normalize:
@@ -109,19 +109,21 @@ def get_shot():
 
 
 def get_user():
-    """A shortcut for getting the shot from the environment.
-
-    Raises an Exception if the shot environment is not found
-    alluding to a setshot error.
     """
-    return os.environ.get('USER', getpass.getuser())
+    Returns the current username
+    """
+    if platform.system() == 'Windows':
+        domain = os.environ.get('USERDOMAIN', None)
+        user = getpass.getuser()
+        return '{}\\{}'.format(domain, user) if domain else user
 
+    return os.environ.get('USER', getpass.getuser())
 
 def get_uid():
     """
     Return the current users id
     """
-    if platform.system() == 'Linux':
-        return os.getuid()
-    else:
-        return 1
+    if platform.system() == 'Windows':
+        return 12345  # TODO: this value is currently not used, but it might be in future
+
+    return os.getuid()

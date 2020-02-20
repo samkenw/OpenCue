@@ -1,4 +1,3 @@
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +13,20 @@
 #  limitations under the License.
 
 
-
 """
 Machine information access module.
-
-Project: RQD
-
-Module: rqmachine.py
-
-Contact: Middle-Tier
-
-SVN: $Id$
 """
+
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
 
 import errno
 import logging as log
@@ -47,22 +48,22 @@ import ctypes
 if platform.system() in ('Linux', 'Darwin'):
     import resource
     import yaml
-
-from . import rqconstants
-from .rqexceptions import CoreReservationFailureException
-from . import rqutil
-from . import rqswap
-
-if platform.system() == "win32":
+elif platform.system() == "win32":
     import win32process
     import win32api
 
-from .compiled_proto import host_pb2
-from .compiled_proto import report_pb2
+import rqd.compiled_proto.host_pb2
+import rqd.compiled_proto.report_pb2
+import rqd.rqconstants
+import rqd.rqexceptions
+import rqd.rqswap
+import rqd.rqutil
+
 
 KILOBYTE = 1024
 
-class Machine:
+
+class Machine(object):
     """Gathers information about the machine and resources"""
     def __init__(self, rqCore, coreInfo):
         """Machine class initialization
@@ -76,18 +77,18 @@ class Machine:
         self.__tasksets = set()
 
         if platform.system() == 'Linux':
-            self.__vmstat = rqswap.VmStat()
+            self.__vmstat = rqd.rqswap.VmStat()
 
-        self.state = host_pb2.UP
+        self.state = rqd.compiled_proto.host_pb2.UP
 
-        self.__renderHost = report_pb2.RenderHost()
+        self.__renderHost = rqd.compiled_proto.report_pb2.RenderHost()
         self.__initMachineTags()
         self.__initMachineStats()
 
-        self.__bootReport = report_pb2.BootReport()
+        self.__bootReport = rqd.compiled_proto.report_pb2.BootReport()
         self.__bootReport.core_info.CopyFrom(self.__coreInfo)
 
-        self.__hostReport = report_pb2.HostReport()
+        self.__hostReport = rqd.compiled_proto.report_pb2.HostReport()
         self.__hostReport.core_info.CopyFrom(self.__coreInfo)
 
         self.__pidHistory = {}
@@ -98,9 +99,9 @@ class Machine:
         """Returns False if nimby should be triggered due to resource limits"""
         if platform.system() == "Linux":
             self.updateMachineStats()
-            if self.__renderHost.free_mem < rqconstants.MINIMUM_MEM:
+            if self.__renderHost.free_mem < rqd.rqconstants.MINIMUM_MEM:
                 return False
-            if self.__renderHost.free_swap < rqconstants.MINIMUM_SWAP:
+            if self.__renderHost.free_swap < rqd.rqconstants.MINIMUM_SWAP:
                 return False
         return True
 
@@ -108,23 +109,23 @@ class Machine:
         """Returns False if nimby should not unlock due to resource limits"""
         if not self.isNimbySafeToRunJobs():
             return False
-        if self.getLoadAvg() // self.__coreInfo.total_cores > rqconstants.MAXIMUM_LOAD:
+        if self.getLoadAvg() / self.__coreInfo.total_cores > rqd.rqconstants.MAXIMUM_LOAD:
             return False
         return True
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
            by checking /etc/inittab. False if not."""
-        if rqconstants.OVERRIDE_IS_DESKTOP:
+        if rqd.rqconstants.OVERRIDE_IS_DESKTOP:
             return True
-        if platform.system() == "Linux" and os.path.exists(rqconstants.PATH_INITTAB):
-            inittabFile = open(rqconstants.PATH_INITTAB, "r")
+        if platform.system() == "Linux" and os.path.exists(rqd.rqconstants.PATH_INITTAB):
+            inittabFile = open(rqd.rqconstants.PATH_INITTAB, "r")
             for line in inittabFile:
                 if line.startswith("id:5:initdefault:"):
                     return True
-            if os.path.islink(rqconstants.PATH_INIT_TARGET):
-                if os.path.realpath(rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
+            if os.path.islink(rqd.rqconstants.PATH_INIT_TARGET):
+                if os.path.realpath(rqd.rqconstants.PATH_INIT_TARGET).endswith('graphical.target'):
                     return True
         if platform.system() == 'Windows':
             return True
@@ -230,7 +231,7 @@ class Machine:
                     rss = 0
                     vsize = 0
                     pcpu = 0
-                    if rqconstants.ENABLE_PTREE:
+                    if rqd.rqconstants.ENABLE_PTREE:
                         ptree = []
                     for pid, data in pids.items():
                         if data["session"] == session:
@@ -246,7 +247,7 @@ class Machine:
 
                                 # Seconds of process life, boot time is already in seconds
                                 seconds = now - bootTime - \
-                                        float(data["start_time"]) // rqconstants.SYS_HERTZ
+                                          float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
                                 if seconds:
                                     if pid in self.__pidHistory:
                                         # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
@@ -261,14 +262,14 @@ class Machine:
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
 
-                                if rqconstants.ENABLE_PTREE:
+                                if rqd.rqconstants.ENABLE_PTREE:
                                     ptree.append({"pid": pid, "seconds": seconds, "total_time": totalTime})
                             except Exception as e:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
 
                     rss = (rss * resource.getpagesize()) // 1024
-                    vsize = int(vsize//1024)
+                    vsize = int(vsize/1024)
 
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
@@ -278,7 +279,7 @@ class Machine:
 
                     frame.runFrame.attributes["pcpu"] = str(pcpu)
 
-                    if rqconstants.ENABLE_PTREE:
+                    if rqd.rqconstants.ENABLE_PTREE:
                         frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree,
                                                                            Loader=yaml.SafeLoader))
 
@@ -292,7 +293,7 @@ class Machine:
         """Returns average number of processes waiting to be served
            for the last 1 minute multiplied by 100."""
         if platform.system() == "Linux":
-            loadAvgFile = open(rqconstants.PATH_LOADAVG, "r")
+            loadAvgFile = open(rqd.rqconstants.PATH_LOADAVG, "r")
             loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
             if self.__enabledHT():
                 loadAvg = loadAvg // 2
@@ -308,11 +309,11 @@ class Machine:
             return loadAvg
         return 0
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def getBootTime(self):
         """Returns epoch when the system last booted"""
         if platform.system() == "Linux":
-            statFile = open(rqconstants.PATH_STAT, "r")
+            statFile = open(rqd.rqconstants.PATH_STAT, "r")
             for line in statFile:
                 if line.startswith("btime"):
                     return int(line.split()[1])
@@ -321,7 +322,7 @@ class Machine:
             return int(uptime.uptime())
         return 0
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def getGpuMemoryTotal(self):
         """Returns the total gpu memory in kb for CUE_GPU_MEMORY"""
         return self.__getGpuValues()['total']
@@ -334,9 +335,9 @@ class Machine:
         if not hasattr(self, 'gpuNotSupported'):
             if not hasattr(self, 'gpuResults'):
                 self.gpuResults = {'total': 0, 'free': 0, 'updated': 0}
-            if rqconstants.ALLOW_PLAYBLAST and not rqconstants.ALLOW_GPU:
+            if rqd.rqconstants.ALLOW_PLAYBLAST and not rqd.rqconstants.ALLOW_GPU:
                 return {'total': 262144, 'free': 262144, 'updated': 0}
-            if not rqconstants.ALLOW_GPU:
+            if not rqd.rqconstants.ALLOW_GPU:
                 self.gpuNotSupported = True
                 return self.gpuResults
             if self.gpuResults['updated'] > time.time() - 60:
@@ -375,7 +376,7 @@ class Machine:
                 return str(0)
         return str(0)
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def getTimezone(self):
         """Returns the desired timezone"""
         if time.tzname[0] == 'IST':
@@ -383,19 +384,19 @@ class Machine:
         else:
             return 'PST8PDT'
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def getHostname(self):
         """Returns the machine's fully qualified domain name"""
-        return rqutil.getHostname()
+        return rqd.rqutil.getHostname()
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def getPathEnv(self):
         """Returns the correct path environment for the given machine"""
         if platform.system() == 'Linux':
             return '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
         return ''
 
-    @rqutil.Memoize
+    @rqd.rqutil.Memoize
     def getTempPath(self):
         """Returns the correct mcp path for the given machine"""
         if platform.system() == "win32":
@@ -412,7 +413,7 @@ class Machine:
 
     def __initMachineTags(self):
         """Sets the hosts tags"""
-        self.__renderHost.tags.append("rqdv-%s" % rqconstants.VERSION)
+        self.__renderHost.tags.append("rqdv-%s" % rqd.rqconstants.VERSION)
 
         # Tag with desktop if it is a desktop
         if self.isDesktop():
@@ -436,8 +437,8 @@ class Machine:
         """Updates static machine information during initialization"""
         self.__renderHost.name = self.getHostname()
         self.__renderHost.boot_time = self.getBootTime()
-        self.__renderHost.facility = rqconstants.FACILITY
-        self.__renderHost.attributes['SP_OS'] = rqconstants.SP_OS
+        self.__renderHost.facility = rqd.rqconstants.FACILITY
+        self.__renderHost.attributes['SP_OS'] = rqd.rqconstants.SP_OS
 
         self.updateMachineStats()
 
@@ -448,32 +449,32 @@ class Machine:
             self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
 
             # Reads static information from /proc/cpuinfo
-            cpuinfoFile = open(pathCpuInfo or rqconstants.PATH_CPUINFO, "r")
-            singleCore = {}
-            procsFound = []
-            for line in cpuinfoFile:
-                lineList = line.strip().replace("\t","").split(": ")
-                # A normal entry added to the singleCore dictionary
-                if len(lineList) >= 2:
-                    singleCore[lineList[0]] = lineList[1]
-                # The end of a processor block
-                elif lineList == ['']:
-                    # Check for hyper-threading
-                    hyperthreadingMultiplier =  (int(singleCore.get('siblings', '1'))
-                                               / int(singleCore.get('cpu cores', '1')))
+            with open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r") as cpuinfoFile:
+                singleCore = {}
+                procsFound = []
+                for line in cpuinfoFile:
+                    lineList = line.strip().replace("\t","").split(": ")
+                    # A normal entry added to the singleCore dictionary
+                    if len(lineList) >= 2:
+                        singleCore[lineList[0]] = lineList[1]
+                    # The end of a processor block
+                    elif lineList == ['']:
+                        # Check for hyper-threading
+                        hyperthreadingMultiplier = (int(singleCore.get('siblings', '1'))
+                                                    // int(singleCore.get('cpu cores', '1')))
 
-                    __totalCores += rqconstants.CORE_VALUE
-                    if "core id" in singleCore \
-                       and "physical id" in singleCore \
-                       and not singleCore["physical id"] in procsFound:
-                        procsFound.append(singleCore["physical id"])
-                        __numProcs += 1
-                    elif "core id" not in singleCore:
-                        __numProcs += 1
-                    singleCore = {}
-                # An entry without data
-                elif len(lineList) == 1:
-                    singleCore[lineList[0]] = ""
+                        __totalCores += rqd.rqconstants.CORE_VALUE
+                        if "core id" in singleCore \
+                           and "physical id" in singleCore \
+                           and not singleCore["physical id"] in procsFound:
+                            procsFound.append(singleCore["physical id"])
+                            __numProcs += 1
+                        elif "core id" not in singleCore:
+                            __numProcs += 1
+                        singleCore = {}
+                    # An entry without data
+                    elif len(lineList) == 1:
+                        singleCore[lineList[0]] = ""
         else:
             hyperthreadingMultiplier = 1
 
@@ -486,31 +487,31 @@ class Machine:
             self.__renderHost.total_swap = int(stat.ullTotalPageFile // 1024)
 
             # Windows CPU information
-            import multiprocessing
-            __totalCores = multiprocessing.cpu_count() * 100
-            # if __totalCores > 1200:
-            #     __totalCores = __totalCores / 2
-            #     __numProcs = 2
+            import psutil
+            logical_core_count = psutil.cpu_count(logical=True)
+            actual_core_count = psutil.cpu_count(logical=False)
+            hyperthreadingMultiplier = logical_core_count // actual_core_count
 
-            __totalCores = __totalCores // 2
-            __numProcs = 2
+            __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
+            __numProcs = 1  # TODO: figure out how to count sockets in Python
+
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
             __numProcs = 1
-            __totalCores = rqconstants.CORE_VALUE
+            __totalCores = rqd.rqconstants.CORE_VALUE
 
-        if rqconstants.OVERRIDE_MEMORY is not None:
+        if rqd.rqconstants.OVERRIDE_MEMORY is not None:
             log.warning("Manually overriding the total memory")
-            self.__renderHost.total_mem = rqconstants.OVERRIDE_MEMORY
+            self.__renderHost.total_mem = rqd.rqconstants.OVERRIDE_MEMORY
 
-        if rqconstants.OVERRIDE_CORES is not None:
+        if rqd.rqconstants.OVERRIDE_CORES is not None:
             log.warning("Manually overriding the number of reported cores")
-            __totalCores = rqconstants.OVERRIDE_CORES * rqconstants.CORE_VALUE
+            __totalCores = rqd.rqconstants.OVERRIDE_CORES * rqd.rqconstants.CORE_VALUE
 
-        if rqconstants.OVERRIDE_PROCS is not None:
+        if rqd.rqconstants.OVERRIDE_PROCS is not None:
             log.warning("Manually overriding the number of reported procs")
-            __numProcs = rqconstants.OVERRIDE_PROCS
+            __numProcs = rqd.rqconstants.OVERRIDE_PROCS
 
         # Don't report/reserve cores added due to hyperthreading
         __totalCores = __totalCores // hyperthreadingMultiplier
@@ -581,11 +582,10 @@ class Machine:
         if platform.system() == "Linux":
             # Reads dynamic information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.free_mcp = (mcpStat[mcpStat.f_bavail]
-                                         * mcpStat[mcpStat.f_bsize]) // KILOBYTE
+            self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
-            with open(rqconstants.PATH_MEMINFO, "r") as fp:
+            with open(rqd.rqconstants.PATH_MEMINFO, "r") as fp:
                 for line in fp:
                     if line.startswith("MemFree"):
                         freeMem = int(line.split()[1])
@@ -673,12 +673,12 @@ class Machine:
             log.debug('Taskset: Can not reserveHT with fractional cores')
             return None
 
-        log.debug('Taskset: Requesting reserve of %s' % (reservedCores // 100))
+        log.debug('Taskset: Requesting reserve of %d' % (reservedCores // 100))
 
         if len(self.__tasksets) < reservedCores // 100:
             err = 'Not launching, insufficient hyperthreading cores to reserve based on reservedCores'
             log.critical(err)
-            raise CoreReservationFailureException(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         tasksets = []
         for x in range(reservedCores // 100):

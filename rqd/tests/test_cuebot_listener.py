@@ -20,6 +20,12 @@ THIS IS FOR TESTING rqd.py ONLY
 """
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import object
 from concurrent import futures
 import time
 import sys
@@ -86,9 +92,9 @@ class RqdReportInterfaceServicer(rqd.compiled_proto.report_pb2_grpc.RqdReportInt
         for host in sorted(self.statusCheckin.keys()):
             secondsSinceLast = now - self.statusCheckin[host]["last"]
             if host == report.host.name:
-                print(" >")
+               print(" >", end=' ')
             else:
-                print("  ")
+               print("  ", end=' ')
             print(host.ljust(15) \
                   , str(int(secondsSinceLast)).ljust(10) \
                   , str(self.statusCheckin[host]["report"].host.load).ljust(5) \

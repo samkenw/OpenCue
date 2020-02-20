@@ -16,31 +16,32 @@
 
 """
 Utility functions.
-
-Project: RQD
-
-Module: rqutil.py
-
-Contact: Middle-Tier
-
-SVN: $Id$
 """
 
-# import crypt
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+from builtins import object
 import functools
-# import grp
 import os
 import platform
-# import pwd
 import random
 import socket
 import subprocess
 import threading
+import uuid
 
-from . import rqconstants
+import rqd.rqconstants
 
-PERMISSIONS = threading.Lock()
-# HIGH_PERMISSION_GROUPS = os.getgroups()
+if platform.system() != 'Windows':
+    import pwd
+    import grp
+
+    PERMISSIONS = threading.Lock()
+    HIGH_PERMISSION_GROUPS = os.getgroups()
 
 
 class Memoize(object):
@@ -88,10 +89,10 @@ def permissionsLow():
        RQD_GID and RQD_UID"""
     if platform.system() == 'Windows':
         return
-    if os.getegid() != rqconstants.RQD_GID or os.getegid() != rqconstants.RQD_GID:
+    if os.getegid() != rqd.rqconstants.RQD_GID or os.geteuid() != rqd.rqconstants.RQD_UID:
         __becomeRoot()
-        os.setegid(rqconstants.RQD_GID)
-        os.seteuid(rqconstants.RQD_UID)
+        os.setegid(rqd.rqconstants.RQD_GID)
+        os.seteuid(rqd.rqconstants.RQD_UID)
     # This will be skipped on first start
     if PERMISSIONS.locked():
         PERMISSIONS.release()
@@ -115,7 +116,7 @@ def permissionsUser(uid, gid):
 
 def __becomeRoot():
     """Sets the effective gid/uid to the initial privileged settings"""
-    if os.getegid() != os.getgid() or os.getegid() != os.getuid():
+    if os.getegid() != os.getgid() or os.geteuid() != os.getuid():
         os.setegid(os.getgid())
         os.seteuid(os.getuid())
         try:
@@ -132,12 +133,11 @@ def checkAndCreateUser(username):
         pwd.getpwnam(username)
         return
     except KeyError:
-        print(('>>> ERROR HERE: ', __file__, 'line: 133'))
-        # subprocess.check_call([
-        #     'useradd',
-        #     '-p', crypt.crypt(username, str(random.randint(1, 10000))),
-        #     username
-        # ])
+        subprocess.check_call([
+            'useradd',
+            '-p', str(uuid.uuid4()), # generate a random password
+            username
+        ])
 
 
 def getHostIp():
@@ -148,7 +148,7 @@ def getHostIp():
 def getHostname():
     """Returns the machine's fully qualified domain name"""
     if platform.system() == "Linux":
-        if rqconstants.RQD_USE_IP_AS_HOSTNAME:
+        if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
             return getHostIp()
         else:
             # This may not work in windows/mac, need to test
