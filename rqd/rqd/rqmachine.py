@@ -297,14 +297,14 @@ class Machine(object):
             loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
             if self.__enabledHT():
                 loadAvg = loadAvg // 2
-            loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
+            loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
             return loadAvg
         elif platform.system() == 'Windows':
             loadAvg = int(float(psutil.getloadavg()[0]) * 100)
             if self.__enabledHT():
                 loadAvg = loadAvg // 2
-            loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
+            loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
             return loadAvg
         return 0

@@ -216,18 +216,18 @@ class Network(object):
     def reportRqdStartup(self, report):
         """Wraps the ability to send a startup report to rqd via grpc"""
         stub = self.__getReportStub()
-        request = report_pb2.RqdReportRqdStartupRequest(boot_report=report)
+        request = rqd.compiled_proto.report_pb2.RqdReportRqdStartupRequest(boot_report=report)
         try:
-            stub.ReportRqdStartup(request, timeout=rqconstants.RQD_TIMEOUT)
+            stub.ReportRqdStartup(request, timeout=rqd.rqconstants.RQD_TIMEOUT)
         except:
             print('No connection yet. Waiting...')
 
     def reportStatus(self, report):
         """Wraps the ability to send a status report to the cuebot via grpc"""
         stub = self.__getReportStub()
-        request = report_pb2.RqdReportStatusRequest(host_report=report)
+        request = rqd.compiled_proto.report_pb2.RqdReportStatusRequest(host_report=report)
         try:
-            stub.ReportStatus(request, timeout=rqconstants.RQD_TIMEOUT)
+            stub.ReportStatus(request, timeout=rqd.rqconstants.RQD_TIMEOUT)
         except:
             print('No connection yet. Waiting...')
 

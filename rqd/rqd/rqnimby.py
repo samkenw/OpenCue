@@ -94,7 +94,7 @@ class Nimby(threading.Thread):
             self.lockedIdle()
         elif self.active:
 
-            self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
+            self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
             self.thread.start()
 
@@ -104,7 +104,7 @@ class Nimby(threading.Thread):
         log.debug("locked_idle")
         waitStartTime = time.time()
 
-        time.sleep(rqconstants.MINIMUM_IDLE)
+        time.sleep(rqd.rqconstants.MINIMUM_IDLE)
 
         if self.active and self.interaction_detected == False and \
            self.rqCore.machine.isNimbySafeToUnlock():
@@ -113,7 +113,7 @@ class Nimby(threading.Thread):
             self.unlockedIdle()
         elif self.active:
 
-            self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
+            self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
             self.thread.start()
 
