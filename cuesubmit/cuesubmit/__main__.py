@@ -24,8 +24,11 @@ from cuesubmit import JobTypes
 from cuesubmit.ui import Style
 from cuesubmit.ui import Submit
 
-from mv_vfx_framework_ui.widget_header.title_bar import DefaultTitleBar
-import mv_vfx_framework_ui.styling as styling
+try: 
+    from mv_vfx_framework_ui.widget_header.title_bar import DefaultTitleBar
+    import mv_vfx_framework_ui.styling as styling
+except Exception as e:
+    pass
 
 class CueSubmitApp(QtWidgets.QApplication):
     """Standalone submission application"""
@@ -50,13 +53,17 @@ class CueSubmitMainWindow(QtWidgets.QMainWindow):
             settingsWidgetType=JobTypes.JobTypes.SHELL,
             parent=self
         )
-        titlebar = DefaultTitleBar('OpenCue Submitter', '0.1.0', parent=self)
-        style = titlebar.stylesheet_file
-        styling.apply_stylesheet(titlebar, external_stylesheet=[style])
         central_widget = QtWidgets.QWidget()
         central_layout = QtWidgets.QVBoxLayout(central_widget)
         central_layout.setContentsMargins(0, 0, 0, 0)
-        central_layout.addWidget(titlebar)
+        try:
+            titlebar = DefaultTitleBar('OpenCue Submitter', '0.1.0', parent=self)
+            style = titlebar.stylesheet_file
+            styling.apply_stylesheet(titlebar, external_stylesheet=[style])
+            central_layout.addWidget(titlebar)
+        except Exception as e:
+            pass
+
         central_layout.addWidget(self.submitWidget)
         self.setCentralWidget(central_widget)
         self.setWindowTitle(name)
