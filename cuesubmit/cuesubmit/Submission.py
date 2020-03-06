@@ -18,7 +18,7 @@ from outline.modules.shell import Shell
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
-import platform 
+import platform
 
 
 def buildMayaCmd(layerData):
@@ -29,7 +29,7 @@ def buildMayaCmd(layerData):
         raise ValueError('No Maya File provided. Cannot submit job.')
     additional_flags = renderer_specific_flags(layerData)
     renderCommand = '{renderCmd} -r {renderer} -s {frameToken} -e {frameToken} {additional_flags}'.format(
-        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN, 
+        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN,
         renderer= additional_flags['renderer'], additional_flags=additional_flags['other'])
     if camera:
         renderCommand += ' -cam {}'.format(camera)
@@ -71,7 +71,7 @@ def buildBlenderCmd(layerData):
     outputFormat = layerData.cmd.get('outputFormat')
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
-    
+
     renderCommand = '{renderCmd} -b -noaudio {blenderFile}'.format(
         renderCmd=Constants.BLENDER_RENDER_CMD, blenderFile=blenderFile)
     if outputPath:
@@ -147,4 +147,9 @@ def submitJob(jobData):
             raise ValueError('unrecognized layer type %s' % layerData.layerType)
         outline.add_layer(layer)
         lastLayer = layer
-    return cuerun.launch(outline, use_pycuerun=False, os=platform.system())
+
+
+    if 'facility' in jobData:
+        outline.set_facility(jobData['facility'])
+
+    return cuerun.launch(outline, use_pycuerun=False)
