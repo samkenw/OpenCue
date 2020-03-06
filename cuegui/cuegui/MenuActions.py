@@ -31,7 +31,6 @@ import subprocess
 import time
 
 import pexpect
-import wexpect
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 import six
@@ -1216,8 +1215,7 @@ class HostActions(AbstractActions):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
             try:
-                # lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines() # pexpect.run() is a unix module, use wexpect instead
-                lines = wexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
+                lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
                 QtWidgets.QMessageBox.information(self._caller,
                                                   "%s hinv" % host.data.name,
                                                   "\n".join(lines),
@@ -1587,7 +1585,7 @@ class TaskActions(AbstractActions):
                 for task in tasks:
                     task.delete()
                 self._update()
-          
+
 
 class LimitActions(AbstractActions):
     def __init__(self, *args):
@@ -1597,7 +1595,7 @@ class LimitActions(AbstractActions):
     def create(self, rpcObjects=None):
         title = "Add Limit"
         body = "Enter a name for the new limit."
-        
+
         (limit, choice) = self.getText(title, body, "")
         if choice:
             limit = limit.strip()
@@ -1634,7 +1632,7 @@ class LimitActions(AbstractActions):
                                     "Set Max Value on Limit %s Failed" % limit.data.name,
                                     int(value))
                 self._update()
-        
+
     rename_info = ["Rename", None, "configure"]
     def rename(self, rpcObjects=None):
         limits = self._getSelected(rpcObjects)
@@ -1745,7 +1743,7 @@ class MenuActions(object):
         if not hasattr(self, "_tasks"):
             self._tasks = TaskActions(*self.__getArgs())
         return self._tasks
-    
+
     def limits(self):
         if not hasattr(self, "_limits"):
             self._limits = LimitActions(*self.__getArgs())
