@@ -190,104 +190,125 @@ class Machine(object):
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
-        if platform.system() != 'Linux':
-            return
+        if platform.system() == 'Linux':
 
-        pids = {}
-        for pid in os.listdir("/proc"):
-            if pid.isdigit():
-                try:
-                    with open("/proc/%s/stat" % pid, "r") as statFile:
-                        statFields = statFile.read().split()
+            pids = {}
+            for pid in os.listdir("/proc"):
+                if pid.isdigit():
+                    try:
+                        with open("/proc/%s/stat" % pid, "r") as statFile:
+                            statFields = statFile.read().split()
 
-                    # See "man proc"
-                    pids[pid] = {
-                        "session": statFields[5],
-                        "vsize": statFields[22],
-                        "rss": statFields[23],
-                        # These are needed to compute the cpu used
-                        "utime": statFields[13],
-                        "stime": statFields[14],
-                        "cutime": statFields[15],
-                        "cstime": statFields[16],
-                        # The time in jiffies the process started
-                        # after system boot.
-                        "start_time": statFields[21],
-                    }
+                        # See "man proc"
+                        pids[pid] = {
+                            "session": statFields[5],
+                            "vsize": statFields[22],
+                            "rss": statFields[23],
+                            # These are needed to compute the cpu used
+                            "utime": statFields[13],
+                            "stime": statFields[14],
+                            "cutime": statFields[15],
+                            "cstime": statFields[16],
+                            # The time in jiffies the process started
+                            # after system boot.
+                            "start_time": statFields[21],
+                        }
 
-                except Exception as e:
-                    log.exception('failed to read stat file for pid %s' % pid)
+                    except Exception as e:
+                        log.exception('failed to read stat file for pid %s' % pid)
 
-        try:
-            now = int(time.time())
-            pidData = {"time": now}
-            bootTime = self.getBootTime()
+            try:
+                now = int(time.time())
+                pidData = {"time": now}
+                bootTime = self.getBootTime()
+
+                values = list(frames.values())
+
+                for frame in values:
+                    if frame.pid > 0:
+                        session = str(frame.pid)
+                        rss = 0
+                        vsize = 0
+                        pcpu = 0
+                        if rqd.rqconstants.ENABLE_PTREE:
+                            ptree = []
+                        for pid, data in pids.items():
+                            if data["session"] == session:
+                                try:
+                                    rss += int(data["rss"])
+                                    vsize += int(data["vsize"])
+
+                                    # jiffies used by this process, last two means that dead children are counted
+                                    totalTime = int(data["utime"]) + \
+                                                int(data["stime"]) + \
+                                                int(data["cutime"]) + \
+                                                int(data["cstime"])
+
+                                    # Seconds of process life, boot time is already in seconds
+                                    seconds = now - bootTime - \
+                                            float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
+                                    if seconds:
+                                        if pid in self.__pidHistory:
+                                            # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
+                                            oldTotalTime, oldSeconds, oldPidPcpu = self.__pidHistory[pid]
+                                            #checking if already updated data
+                                            if seconds != oldSeconds:
+                                                pidPcpu = (totalTime - oldTotalTime) / float(seconds - oldSeconds)
+                                                pcpu += (oldPidPcpu + pidPcpu) // 2 # %cpu
+                                                pidData[pid] = totalTime, seconds, pidPcpu
+                                        else:
+                                            pidPcpu = totalTime // seconds
+                                            pcpu += pidPcpu
+                                            pidData[pid] = totalTime, seconds, pidPcpu
+
+                                    if rqd.rqconstants.ENABLE_PTREE:
+                                        ptree.append({"pid": pid, "seconds": seconds, "total_time": totalTime})
+                                except Exception as e:
+                                    log.warning('Failure with pid rss update due to: %s at %s' % \
+                                                (e, traceback.extract_tb(sys.exc_info()[2])))
+
+                        rss = (rss * resource.getpagesize()) // 1024
+                        vsize = int(vsize/1024)
+
+                        frame.rss = rss
+                        frame.maxRss = max(rss, frame.maxRss)
+
+                        frame.vsize = vsize
+                        frame.maxVsize = max(vsize, frame.maxVsize)
+
+                        frame.runFrame.attributes["pcpu"] = str(pcpu)
+
+                        if rqd.rqconstants.ENABLE_PTREE:
+                            frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree,
+                                                                            Loader=yaml.SafeLoader))
+
+                # Store the current data for the next check
+                self.__pidHistory = pidData
+
+            except Exception as e:
+                log.exception('Failure with rss update due to: {0}'.format(e))
+
+        elif platform.system() == 'Windows':
 
             values = list(frames.values())
-
             for frame in values:
-                if frame.pid > 0:
-                    session = str(frame.pid)
-                    rss = 0
-                    vsize = 0
-                    pcpu = 0
-                    if rqd.rqconstants.ENABLE_PTREE:
-                        ptree = []
-                    for pid, data in pids.items():
-                        if data["session"] == session:
-                            try:
-                                rss += int(data["rss"])
-                                vsize += int(data["vsize"])
+                try:
+                    process = psutil.Process(pid=frame.pid)
 
-                                # jiffies used by this process, last two means that dead children are counted
-                                totalTime = int(data["utime"]) + \
-                                            int(data["stime"]) + \
-                                            int(data["cutime"]) + \
-                                            int(data["cstime"])
-
-                                # Seconds of process life, boot time is already in seconds
-                                seconds = now - bootTime - \
-                                          float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
-                                if seconds:
-                                    if pid in self.__pidHistory:
-                                        # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
-                                        oldTotalTime, oldSeconds, oldPidPcpu = self.__pidHistory[pid]
-                                        #checking if already updated data
-                                        if seconds != oldSeconds:
-                                            pidPcpu = (totalTime - oldTotalTime) / float(seconds - oldSeconds)
-                                            pcpu += (oldPidPcpu + pidPcpu) // 2 # %cpu
-                                            pidData[pid] = totalTime, seconds, pidPcpu
-                                    else:
-                                        pidPcpu = totalTime // seconds
-                                        pcpu += pidPcpu
-                                        pidData[pid] = totalTime, seconds, pidPcpu
-
-                                if rqd.rqconstants.ENABLE_PTREE:
-                                    ptree.append({"pid": pid, "seconds": seconds, "total_time": totalTime})
-                            except Exception as e:
-                                log.warning('Failure with pid rss update due to: %s at %s' % \
-                                            (e, traceback.extract_tb(sys.exc_info()[2])))
-
-                    rss = (rss * resource.getpagesize()) // 1024
-                    vsize = int(vsize/1024)
+                    mem_info = process.memory_info()
+                    rss = int(int(mem_info.rss) // 1024)
+                    vsize = int(int(mem_info.vms)/1024)
 
                     frame.rss = rss
-                    frame.maxRss = max(rss, frame.maxRss)
-
                     frame.vsize = vsize
+                    frame.maxRss = max(rss, frame.maxRss)
                     frame.maxVsize = max(vsize, frame.maxVsize)
 
-                    frame.runFrame.attributes["pcpu"] = str(pcpu)
+                except Exception as e:
+                    log.critical(e)
 
-                    if rqd.rqconstants.ENABLE_PTREE:
-                        frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree,
-                                                                           Loader=yaml.SafeLoader))
-
-            # Store the current data for the next check
-            self.__pidHistory = pidData
-
-        except Exception as e:
-            log.exception('Failure with rss update due to: {0}'.format(e))
+        else:
+            return
 
     def getLoadAvg(self):
         """Returns average number of processes waiting to be served

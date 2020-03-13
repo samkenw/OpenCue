@@ -53,33 +53,46 @@ import logging.handlers
 import os
 import platform
 import sys
+import socket
+import time
 
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqutil
 
 
-def setupLogging():
+def setupLogging(logpath):
     """Sets up the logging for RQD.
        Logs to /var/log/messages"""
     # TODO(bcipriano) These should be config based. (Issue #72)
     consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel  = logging.DEBUG
+    consoleLevel  = logging.INFO
     fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel     = logging.WARNING # Equal to or greater than the consoleLevel
+    fileLevel     = logging.INFO # Equal to or greater than the consoleLevel
 
     logging.basicConfig(level=consoleLevel, format=consoleFormat)
-    if platform.system() in ('Linux', 'Darwin'):
+    syslogAddress = None
+    if os.path.exists(logpath):
+        syslogAddress = logpath
+        print(logpath)
+    elif platform.system() in ('Linux', 'Darwin'):
         if platform.system() == 'Linux':
             syslogAddress = '/dev/log'
         else:
             syslogAddress = '/var/run/syslog'
-        if os.path.exists(syslogAddress):
-            logfile = logging.handlers.SysLogHandler(address=syslogAddress)
-        else:
-            logfile = logging.handlers.SysLogHandler()
     else:
         logfile = logging.handlers.SysLogHandler()
+
+    if syslogAddress:
+        syslogAddress = os.path.join(syslogAddress, socket.gethostname())
+        if not os.path.exists(syslogAddress):
+            os.mkdir(syslogAddress)
+        syslogAddress = os.path.join(syslogAddress, str(time.time()) + '.txt')
+        print('logpath is: {}'.format(syslogAddress))
+        logfile = logging.FileHandler(filename=syslogAddress)
+    else:
+        logfile = logging.handlers.SysLogHandler()
+
     logfile.setLevel(fileLevel)
     logfile.setFormatter(logging.Formatter(fileFormat))
     logging.getLogger('').addHandler(logfile)
@@ -97,22 +110,20 @@ def usage():
     print("                            Config file is optional", file=s)
 
 def main():
-    setupLogging()
-
-    if platform.system() == 'Linux' and os.getuid() != 0:
-        logging.critical("Please run launch as root")
-        sys.exit(1)
 
     try:
         opts, argv = getopt.getopt(sys.argv[1:], 'hdc:', ['help',
                                                           'daemon',
                                                           'nimbyoff',
-                                                          'update'])
+                                                          'update',
+                                                          'logpath='])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
 
     optNimbyOff = False
+    logpath = None
+
     for o, a in opts:
         if o in ["-h", "--help"]:
             usage()
@@ -122,6 +133,14 @@ def main():
             pass
         if o in ["--nimbyoff"]:
             optNimbyOff = True
+        if o == "--logpath":
+            logpath = a
+
+    setupLogging(logpath)
+
+    if platform.system() == 'Linux' and os.getuid() != 0:
+        logging.critical("Please run launch as root")
+        sys.exit(1)
 
     rqd.rqutil.permissionsLow()
 
@@ -135,5 +154,5 @@ def main():
 
 
 if __name__ == "__main__":
-  main()
-
+    print('I am here')
+    main()

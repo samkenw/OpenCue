@@ -48,7 +48,7 @@ class FrameEtaGenerator(object):
         self.simTimes=[]
         self.log=''
         self.log_lines=0
-         
+
     def GetFrameEta(self, job, frame):
         self.log = opencue.util.logPath(job, frame)
         if os.path.isfile(self.log):
@@ -74,10 +74,9 @@ class FrameEtaGenerator(object):
             self.frame_results['percent_complete']=0
         linecache.clearcache()
 
-        print('>>>>>>', self.frame_results['percent_complete'])
         return self.frame_results
 
-    
+
     def Tango(self, frame):
         simTimes=[]
         if os.path.isfile(self.log):
@@ -90,7 +89,7 @@ class FrameEtaGenerator(object):
                     break
             frameTime = line.split("=")[1].split(",")[0].strip(" ") # Extract frame time
             if float(frameTime) > 0:
-                simTimes.append(float(frameTime)) 
+                simTimes.append(float(frameTime))
                 lastFrame = line.split('#')[1].split(".")[0].strip(" ") # Extract the last frame
             line_counter=100
             line=''
@@ -109,7 +108,7 @@ class FrameEtaGenerator(object):
             self.percents=sorted(self.percents, reverse=True)
             if len(self.percents) > 1:
                 self.total_completion = (self.percents[0][1] - self.percents[-1][1]) * (100 / (self.percents[0][0] - self.percents[-1][0]))
-            
+
     def Svea(self, frame):
         if os.path.isfile(self.log):
             line=''
@@ -212,7 +211,7 @@ class FrameEtaGenerator(object):
             self.percents.append((percent,time_on_log))
         except:
             pass
-    
+
     def GetSeconds(self,line):
         time_str=re.search('([0-9]+):([0-9]{2}):([0-9]{2})', line)
         hour=int(time_str.group(1))
@@ -263,15 +262,15 @@ class Memoize(object):
         self.func = func
         self.memoized = {}
         self.method_cache = {}
-        
+
     def __call__(self, *args):
         return self.cache_get(self.memoized, args,
         lambda: self.func(*args))
-        
+
     def __get__(self, obj, objtype):
         return self.cache_get(self.method_cache, obj,
         lambda: self.__class__(functools.partial(self.func, obj)))
-        
+
     def cache_get(self, cache, key, func):
         try:
             return cache[key]
@@ -317,7 +316,7 @@ class BackwardsReader:
         if lastchar == "\n":
             self.trailing_newline = 1
             self.file.seek(-1, 2)
-            
+
             br = BackwardsReader(open(self.log))
             while 1:
                 line = br.readline()
@@ -326,18 +325,18 @@ class BackwardsReader:
                     break
                 if not line:
                     break
-            
+
             for line in reversed(open(self.log).readlines()):
                 if '% done'in line:
                     self.GetPercent(line)
                     break
-            
+
             file=PipeIt('tac %s' % self.log)[0]
-            for line in file:#os.popen('tac %s' % self.log): PipeIt('tac %s' % self.log)[0]: 
+            for line in file:#os.popen('tac %s' % self.log): PipeIt('tac %s' % self.log)[0]:
                 if '% done'in line:
                     self.GetPercent(line)
                     break
-            
+
             while '% done' not in line:
                 line=linecache.getline(self.log,self.log_lines-line_counter)
                 line_counter+=1

@@ -34,7 +34,7 @@ def buildMayaCmd(layerData):
     if camera:
         renderCommand += ' -cam {}'.format(camera)
     renderCommand += ' {}'.format(mayaFile)
-    return get_rez_command() + renderCommand
+    return get_rez_command('maya') + renderCommand
 
 def renderer_specific_flags(layerData):
     flags = {
@@ -47,8 +47,11 @@ def renderer_specific_flags(layerData):
 
     return flags
 
-def get_rez_command():
-    return 'rez-env maya-2018 maya_arnold -- '
+def get_rez_command(dcc):
+    if dcc == 'maya':
+        return 'rez-env maya-2018 maya_arnold -- '
+    elif dcc == 'nuke':
+        return 'rez-env nuke mvs -- '
 
 
 def buildNukeCmd(layerData):
@@ -62,7 +65,7 @@ def buildNukeCmd(layerData):
     if writeNodes:
         renderCommand += '-X {} '.format(writeNodes)
     renderCommand += '-x {}'.format(nukeFile)
-    return renderCommand
+    return get_rez_command('nuke') + renderCommand
 
 def buildBlenderCmd(layerData):
     """From a layer, build a Blender render command."""

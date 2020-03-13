@@ -35,6 +35,7 @@ import tempfile
 import threading
 import time
 import traceback
+import psutil
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -125,11 +126,12 @@ class FrameAttendantThread(threading.Thread):
             else:
                 commandFile = os.path.join(tempfile.gettempdir(),
                                            'rqd-cmd-%s-%s' % (self.runFrame.frame_id, time.time()))
-            rqexe = open(commandFile, "w")
+            with open(commandFile, "w") as rqexe:
+                rqexe.write(command)
+
             self._tempLocations.append(commandFile)
-            rqexe.write(command)
-            rqexe.close()
-            os.chmod(commandFile, 0o777)
+            if platform.system() == "Linux":
+                os.chmod(commandFile, 0o777)
             return commandFile
         except Exception as e:
             log.critical("Unable to make command file: %s due to %s at %s" % (
@@ -223,7 +225,8 @@ class FrameAttendantThread(threading.Thread):
             for location in self._tempLocations:
                 if os.path.isfile(location):
                     try:
-                        os.remove(location)
+                        pass
+                        # os.remove(location)
                     except Exception as e:
                         log.warning("Unable to delete file: %s due to %s at %s" % (
                             location, e, traceback.extract_tb(sys.exc_info()[2])))
@@ -323,12 +326,12 @@ class FrameAttendantThread(threading.Thread):
             cpu_list = []
             if 'CPU_LIST' in runFrame.attributes:
                 cpu_list = list(map(int, runFrame.attributes['CPU_LIST'].split(',')))
-            
-            log.warning('>>>>>>>> {}'.format(cpu_list))
+
+            log.warning('Running frame {} on cores: {}'.format(self.frameEnv['CUE_IFRAME'], cpu_list))
 
             frameInfo.forkedCommand = psutil.Popen(tempCommand, stdin=subprocess.PIPE,stdout=self.rqlog, stderr=self.rqlog)
             frameInfo.forkedCommand.cpu_affinity(cpu_list)
-            threading.Timer(0.1, self.set_child_affinity, args=[frameInfo.forkedCommand, cpu_list]).start()
+            # threading.Timer(0.1, self.set_child_affinity, args=[frameInfo.forkedCommand, cpu_list]).start()
 
         except:
             log.critical("Failed subprocess.Popen: Due to: \n%s" % ''.join(
@@ -360,13 +363,13 @@ class FrameAttendantThread(threading.Thread):
             try:
                 proc.cpu_affinity(cpu_list)
             except Exception as e:
-                print('>>>> ERROR: ', e) 
+                pass
             for child in proc.children(recursive=True):
                 if child.is_running():
                     try:
                         child.cpu_affinity(cpu_list)
                     except Exception as e:
-                        print('>>>> ERROR: ', e) 
+                        pass
             threading.Timer(0.1, self.set_child_affinity, args=[proc, cpu_list]).start()
 
     def runDarwin(self):
@@ -439,7 +442,7 @@ class FrameAttendantThread(threading.Thread):
                                                    runFrame.frame_name)
             runFrame.log_file = "%s.%s.rqlog" % (runFrame.job_name,
                                                  runFrame.frame_name)
-            runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
+            runFrame.log_dir_file = os.path.join(os.path.normpath(runFrame.log_dir), runFrame.log_file)
 
             try:  # Exception block for all exceptions
 
@@ -474,6 +477,7 @@ class FrameAttendantThread(threading.Thread):
                         err = "Unable to write to log directory %s" % runFrame.log_dir
                         raise RuntimeError(err)
 
+                    log.warning('file is: {}'.format(runFrame.log_dir_file))
                     try:
                         # Rotate any old logs to a max of MAX_LOG_FILES:
                         if os.path.isfile(runFrame.log_dir_file):
@@ -481,13 +485,13 @@ class FrameAttendantThread(threading.Thread):
                             while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
                                    and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
                                 rotateCount += 1
-                            os.rename(runFrame.log_dir_file,
+                            os.replace(runFrame.log_dir_file,
                                       "%s.%s" % (runFrame.log_dir_file, rotateCount))
                     except Exception as e:
                         err = "Unable to rotate previous log file due to %s" % e
                         raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w", 1)
+                        self.rqlog = open(os.path.normpath(runFrame.log_dir_file), "w", 1)
                         self.waitForFile(runFrame.log_dir_file)
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
@@ -497,6 +501,9 @@ class FrameAttendantThread(threading.Thread):
                     except Exception as e:
                         err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
                         log.warning(err)
+
+                except Exception as e:
+                    log.critical(e)
 
                 finally:
                     rqd.rqutil.permissionsLow()
@@ -521,6 +528,10 @@ class FrameAttendantThread(threading.Thread):
                 self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
                 # Delay keeps the cuebot from spamming failing booking requests
                 time.sleep(10)
+
+        except Exception as e:
+                    log.critical(e)
+
         finally:
             self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'))
 
@@ -717,7 +728,7 @@ class RqCore(object):
         @type  reqRelease: int
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
         self.__threadLock.acquire()
- 
+
         try:
             self.cores.booked_cores -= reqRelease
             maxRelease = (self.cores.total_cores -
@@ -918,7 +929,7 @@ class RqCore(object):
                 raise rqd.rqexceptions.RqdException(err)
 
         else:
-            log.warning('>>>> System is not NIMBY enabled.')
+            log.warning('System is not NIMBY enabled.')
 
     def nimbyOff(self):
         """Deactivates nimby and unlocks any nimby lock"""
